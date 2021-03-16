@@ -23,7 +23,7 @@ int main()
     if (s == -1)
     {
         printf("Error in socket(): %d\n", errno);
-        return -1;
+        return EXIT_FAILURE;
     }
 
     FD_ZERO(&si_other);
@@ -38,7 +38,7 @@ int main()
     if (bind(s,(struct sockaddr *)&si_me, sizeof(si_me)) == -1)
     {
         printf("Error in bind(): %d\n", errno);
-        return -1;
+        return EXIT_FAILURE;
     }
 
     printf("Listening...\n");
@@ -56,7 +56,7 @@ int main()
             total += bytes;
 
         }
-    } while(frames < SUBIMAGES * FRAMES_PER_SUBIMAGES);
+    } while(frames < SUBIMAGES * FRAMES_PER_SUBIMAGES * 30);
     clock_gettime(CLOCK_MONOTONIC_RAW, &end);
 
     uint64_t delta_us = (end.tv_sec - start.tv_sec) * 1000000 +
