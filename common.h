@@ -29,12 +29,7 @@
 
 #define BUFFER_SIZE (SUBIMAGES * FRAMES_PER_SUBIMAGES * UDP_FRAME)
 
-/*
- * Still some problems in calculation logic
- * 1500000 == 650Mbs
- * 2000000 == 950Mbs
- */
-#define BANDWITH 1500000
+#define BANDWIDTH_MBS 650
 
 /* getsockopt(3, SOL_SOCKET, SO_SNDBUF, [34000000]> */
 #define SO_SNDBUF_SIZE 34000000

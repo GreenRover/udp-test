@@ -79,6 +79,7 @@ int main(int argc, char **argv)
 
 		size_t i;
 		size_t chuckSize = 0;
+        int soSndbufFilledTimes = 0;
 		for (i = 0; i < BUFFER_SIZE; )
 		{
 			memcpy(&buffer[i], "MILA", 4);
@@ -97,26 +98,27 @@ int main(int argc, char **argv)
 			i += transmittedBytes;
             chuckSize += transmittedBytes;
 
-			if ((chuckSize + BUFFER_SIZE) > SO_SNDBUF_SIZE) {
+            if ((chuckSize + UDP_FRAME) > SO_SNDBUF_SIZE) {
                 // SO_SNDBUFF was possible filled
-                chuckSize = 0;
+                soSndbufFilledTimes++;
 
                 clock_gettime(CLOCK_MONOTONIC_RAW, &chunkEndTs);
                 double chunkDeltaUs = ((chunkEndTs.tv_sec - chunkStartTs.tv_sec) * 1000000.0) +
-                        ((chunkEndTs.tv_nsec - chunkStartTs.tv_nsec) / 1000.0);
+                                      ((chunkEndTs.tv_nsec - chunkStartTs.tv_nsec) / 1000.0);
 
 
-                double msPerBufferChunk = 100000.0 * (SO_SNDBUF_SIZE * 1.0  / (BANDWITH  * 1000000.0));
-                //printf("%.2f > %.2f\n", msPerBufferChunk, chunkDeltaUs);
+                double perBufferChunkUs = 1e6 * (SO_SNDBUF_SIZE * 1.0  / (1.0 * 1e6 * BANDWIDTH_MBS / 8.0));
+                // printf("%d: %.2f > %.2f\n", soSndbufFilledTimes, perBufferChunkUs, chunkDeltaUs);
 
                 // Check if we put data into SO_SNDBUF_SIZE faster thant the os /
                 // network card is able to send data over wire.
-                if (msPerBufferChunk > chunkDeltaUs) {
-                    mini_sleep(msPerBufferChunk - chunkDeltaUs);
+                if (perBufferChunkUs > chunkDeltaUs) {
+                    mini_sleep(perBufferChunkUs - chunkDeltaUs);
                 }
 
+                chuckSize = 0;
                 clock_gettime(CLOCK_MONOTONIC_RAW, &chunkStartTs);
-			}
+            }
 		}
 
 		clock_gettime(CLOCK_MONOTONIC_RAW, &endTs);
