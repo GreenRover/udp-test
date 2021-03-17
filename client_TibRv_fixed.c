@@ -1,5 +1,5 @@
 /**
- * UDP client
+ * This sample was created by a Java developer an should only show the bug/problem in TibRv.
  */
 #include "common.h"
 
@@ -19,7 +19,7 @@ void build(uint8_t* buffer, size_t length)
 
 int main(int argc, char **argv)
 {
-    struct timespec start, end;
+    struct timespec startTs, endTs, chunkStartTs, chunkEndTs;
     int sockfd;
     struct sockaddr_in server;
 
@@ -35,18 +35,11 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-	int sndbuf = 25165824;      /* getsockopt(13, SOL_SOCKET, SO_SNDBUF, [25165824], [4]) = 0 */
-	if (setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)) < 0)
-    {
-    	perror("SO_SNDBUF");
-        return EXIT_FAILURE;
-    }
-
 	/* setsockopt(13, SOL_IP, 0x31 IP_??? , [0], 4) = 0 */
-	int xxx = 0;
-	if (setsockopt(sockfd, SOL_IP, 0x31, &xxx, sizeof(xxx)) < 0)
+    int xxx = 0;
+    if (setsockopt(sockfd, SOL_IP, 0x31, &xxx, sizeof(xxx)) < 0)
     {
-    	perror("xxx");
+     	perror("xxx");
         return EXIT_FAILURE;
     }
 
@@ -54,7 +47,7 @@ int main(int argc, char **argv)
 	struct sockaddr_in si_me;
     bzero(&(si_me.sin_zero),8);
     si_me.sin_family = AF_INET;
-    si_me.sin_port = htons(PORT);
+    si_me.sin_port = htons(0);
     si_me.sin_addr.s_addr = INADDR_ANY;
 
     printf("Bind socket...\n");
@@ -65,27 +58,28 @@ int main(int argc, char **argv)
     }
 
 	/* setsockopt(13, SOL_IP, IP_MULTICAST_LOOP, "\0", 1) = 0 */
-	int multicastLoop = 0;
-	if (setsockopt(sockfd, SOL_IP, IP_MULTICAST_LOOP, &multicastLoop, sizeof(multicastLoop)) < 0)
+	/* dont receive self what i send */
+  	int multicastLoop = 0;
+  	if (setsockopt(sockfd, SOL_IP, IP_MULTICAST_LOOP, &multicastLoop, sizeof(multicastLoop)) < 0)
     {
-    	perror("IP_MULTICAST_LOOP");
+     	perror("IP_MULTICAST_LOOP");
         return EXIT_FAILURE;
     }
 
 	/* setsockopt(13, SOL_IP, IP_MULTICAST_TTL, "\20", 1) = 0 */
-	int ttl;
-	ttl = 20;
+    int ttl;
+    ttl = 20;
     if (setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) < 0)
     {
-    	perror("IP_MULTICAST_TTL");
+  	    perror("IP_MULTICAST_TTL");
         return EXIT_FAILURE;
     }
 
-	if (fcntl(sockfd, F_SETFL, O_RDWR|O_NONBLOCK) < 0)
-    {
-    	perror("F_SETFL");
-        return EXIT_FAILURE;
-    }
+  //  if (fcntl(sockfd, F_SETFL, O_RDWR|O_NONBLOCK) < 0)
+  //  {
+  //  	perror("F_SETFL");
+  //      return EXIT_FAILURE;
+  //  }
 
 	/* setsockopt(13, SOL_IP, IP_MULTICAST_IF, [-56579062], 4) = 0 */
 	struct in_addr localInterface;
@@ -97,12 +91,12 @@ int main(int argc, char **argv)
     }
 
 	/* setsockopt(13, SOL_SOCKET, SO_BROADCAST, [1], 4) = 0 */
-	int broadcastEnable=1;
-	if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable)) < 0)
-    {
-    	perror("SO_BROADCAST");
-        return EXIT_FAILURE;
-    }
+  // 	int broadcastEnable=1;
+  // 	if (setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable)) < 0)
+  //    {
+  //     	perror("SO_BROADCAST");
+  //        return EXIT_FAILURE;
+  //    }
 
 
     bzero((char*)&server, sizeof(server));
@@ -117,11 +111,16 @@ int main(int argc, char **argv)
 	}
 
     printf("Send UDP data...\n");
-    clock_gettime(CLOCK_MONOTONIC_RAW, &start);
+
+	setlocale( LC_ALL, "de_CH.UTF-8" );
 
     size_t x;
     for (x = 0; x < 30; x++) {
+    	clock_gettime(CLOCK_MONOTONIC_RAW, &startTs);
+        clock_gettime(CLOCK_MONOTONIC_RAW, &chunkStartTs);
+
 		size_t i;
+		size_t chuckSize = 0;
 		for (i = 0; i < BUFFER_SIZE; )
 		{
 			memcpy(&buffer[i], "MILA", 4);
@@ -141,15 +140,38 @@ int main(int argc, char **argv)
 			}
 
 			i += transmittedBytes;
+            chuckSize += transmittedBytes;
+
+            if ((chuckSize + BUFFER_SIZE) > SO_SNDBUF_SIZE) {
+                // SO_SNDBUFF was possible filled
+                chuckSize = 0;
+
+                clock_gettime(CLOCK_MONOTONIC_RAW, &chunkEndTs);
+                double chunkDeltaUs = ((chunkEndTs.tv_sec - chunkStartTs.tv_sec) * 1000000.0) +
+                                      ((chunkEndTs.tv_nsec - chunkStartTs.tv_nsec) / 1000.0);
+
+
+                double msPerBufferChunk = 100000.0 * (SO_SNDBUF_SIZE * 1.0  / (BANDWITH  * 1000000.0));
+                //printf("%.2f > %.2f\n", msPerBufferChunk, chunkDeltaUs);
+
+                // Check if we put data into SO_SNDBUF_SIZE faster thant the os /
+                // network card is able to send data over wire.
+                if (msPerBufferChunk > chunkDeltaUs) {
+                    mini_sleep(msPerBufferChunk - chunkDeltaUs);
+                }
+
+                clock_gettime(CLOCK_MONOTONIC_RAW, &chunkStartTs);
+            }
 		}
-		printf("X %d\n", x);
+
+        clock_gettime(CLOCK_MONOTONIC_RAW, &endTs);
+        uint64_t delta_us = (endTs.tv_sec - startTs.tv_sec) * 1000000 +
+                            (endTs.tv_nsec - startTs.tv_nsec) / 1000;
+
+        int kb = (BUFFER_SIZE / 1000);
+        double sec =  ((delta_us * 1.0) / 1e6f);
+        printf("chunk %02d | %'d kB | %.3f sec | %'10.0f kbit/s\n", x, kb, sec, kb / sec * 8);
     }
-
-    clock_gettime(CLOCK_MONOTONIC_RAW, &end);
-    uint64_t delta_us = (end.tv_sec - start.tv_sec) * 1000000 +
-        (end.tv_nsec - start.tv_nsec) / 1000;
-
-    printf("Time to send %d subimages: %f[s]\n", SUBIMAGES, delta_us / 1e6f);
     printf("Finished...\n");
 
     return EXIT_SUCCESS;

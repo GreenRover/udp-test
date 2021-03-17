@@ -15,6 +15,8 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <errno.h>
+#include <locale.h>
+#include <math.h>
 
 #define PORT (3000)
 
@@ -26,6 +28,25 @@
 #define CLIENT_INTERFACE "10.172.160.251"
 
 #define BUFFER_SIZE (SUBIMAGES * FRAMES_PER_SUBIMAGES * UDP_FRAME)
+
+/*
+ * Still some problems in calculation logic
+ * 1500000 == 650Mbs
+ * 2000000 == 950Mbs
+ */
+#define BANDWITH 1500000
+
+/* getsockopt(3, SOL_SOCKET, SO_SNDBUF, [34000000]> */
+#define SO_SNDBUF_SIZE 34000000
+
+void mini_sleep(unsigned long usec) {
+    struct timespec requested, remaining;
+    requested.tv_sec  = 0;
+    requested.tv_nsec = usec * 1000;
+    // Note, signals will cause the nanosleep
+    // to return early.  That's fine.
+    nanosleep(&requested, &remaining);
+}
 
 struct Frame {
     char code[4];
