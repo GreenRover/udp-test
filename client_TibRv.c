@@ -23,6 +23,9 @@ int main(int argc, char **argv)
     int sockfd;
     struct sockaddr_in server;
 
+    char* CLIENT_INTERFACE = argv[1];
+
+    printf("Using interface %d\n", CLIENT_INTERFACE);
     printf("Build Data...\n");
     build(buffer, sizeof(buffer));
 

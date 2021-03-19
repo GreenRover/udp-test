@@ -23,6 +23,9 @@ int main(int argc, char **argv)
     int sockfd;
     struct sockaddr_in server;
 
+    long BANDWIDTH_MBS = strtol(argv[2], NULL, 10);
+    char* CLIENT_INTERFACE = argv[1];
+
     printf("Build Data...\n");
     build(buffer, sizeof(buffer));
 

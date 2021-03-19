@@ -23,6 +23,11 @@ int main(int argc, char **argv)
     int sockfd;
     struct sockaddr_in server;
 
+    long BANDWIDTH_MBS = strtol(argv[2], NULL, 10);
+    char* CLIENT_INTERFACE = argv[1];
+
+    printf("Using interface %s\n", CLIENT_INTERFACE);
+    printf("Limit speed to %dMbs\n", BANDWIDTH_MBS);
     printf("Build Data...\n");
     build(buffer, sizeof(buffer));
 
@@ -34,6 +39,14 @@ int main(int argc, char **argv)
         perror("Error opening socket");
         return EXIT_FAILURE;
     }
+
+    int sndBufferSize = 4000000;
+    setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, buffer, sizeof(buffer));
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, buffer, sizeof(buffer));
+
+    socklen_t sndBufferSizeLength = sizeof(sndBufferSize);
+    getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sndBufferSize, &sndBufferSizeLength);
+    printf("sndBufferSize: %d\n", sndBufferSize);
 
 	/* setsockopt(13, SOL_IP, 0x31 IP_??? , [0], 4) = 0 */
     int xxx = 0;
@@ -104,6 +117,10 @@ int main(int argc, char **argv)
     server.sin_addr.s_addr = inet_addr(SERVERADDRESS);
     server.sin_port = htons(PORT);
 
+    getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sndBufferSize, &sndBufferSizeLength);
+    printf("sndBufferSize: %d\n", sndBufferSize);
+
+
 	if (connect(sockfd, (struct sockaddr *)&server, sizeof(server)) < 0)
 	{
 		perror("Error: Connect Failed");
@@ -140,10 +157,18 @@ int main(int argc, char **argv)
 				return EXIT_FAILURE;
 			}
 
+			/*
+			if (transmittedBytes == UDP_FRAME) {
+			    printf("+");
+			} else {
+			    printf("-");
+			}
+			*/
+
 			i += transmittedBytes;
             chuckSize += transmittedBytes;
 
-            if ((chuckSize + UDP_FRAME) > SO_SNDBUF_SIZE) {
+            if ((chuckSize + UDP_FRAME) > (SO_SNDBUF_SIZE / 2)) {
                 // SO_SNDBUFF was possible filled
                 soSndbufFilledTimes++;
 
